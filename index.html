@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="画像を正方形に切り抜き、18×18のピクセルアートへ変換できるブラウザアプリ。">
-  <title>Twitchサブスクバッチつくるくん</title>
+  <meta name="description" content="画像を正方形に切り抜き、好きなドット数のピクセルアートへ変換できるブラウザアプリ。">
+  <title>Pixelater — 画像をピクセルアートに</title>
   <style>
     :root {
       color-scheme: light;
@@ -131,6 +131,10 @@
       font-size: 2.1rem;
       line-height: 0.9;
       letter-spacing: -0.1em;
+    }
+
+    .size-stamp.compact strong {
+      font-size: 1.65rem;
     }
 
     .size-stamp span {
@@ -517,6 +521,7 @@
     }
 
     .preview-shell {
+      --grid-cell: 5.5555556%;
       position: relative;
       width: min(100%, 450px);
       aspect-ratio: 1;
@@ -550,7 +555,7 @@
       background-image:
         linear-gradient(to right, rgba(23, 19, 31, 0.22) 1px, transparent 1px),
         linear-gradient(to bottom, rgba(23, 19, 31, 0.22) 1px, transparent 1px);
-      background-size: 5.5555556% 5.5555556%;
+      background-size: var(--grid-cell) var(--grid-cell);
       box-shadow: inset 0 0 0 1px rgba(23, 19, 31, 0.22);
     }
 
@@ -573,7 +578,7 @@
       display: none;
     }
 
-    .empty-18 {
+    .empty-size {
       display: block;
       margin-bottom: 8px;
       color: var(--purple-dark);
@@ -609,8 +614,9 @@
 
     .actual-pixel-wrap {
       display: grid;
-      width: 38px;
-      height: 38px;
+      width: 84px;
+      height: 84px;
+      flex: 0 0 auto;
       place-items: center;
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -618,8 +624,8 @@
     }
 
     #actualCanvas {
-      width: 18px;
-      height: 18px;
+      max-width: 72px;
+      max-height: 72px;
       image-rendering: pixelated;
     }
 
@@ -662,6 +668,89 @@
       border: 2px solid var(--ink);
       border-radius: 14px;
       background: var(--purple-pale);
+    }
+
+    .pixel-size-card {
+      margin-bottom: 12px;
+      padding: 15px;
+      border: 2px solid var(--ink);
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .pixel-size-topline {
+      display: flex;
+      gap: 16px;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .pixel-size-topline label {
+      font-size: 0.82rem;
+      font-weight: 900;
+    }
+
+    .pixel-size-value {
+      color: var(--purple-dark);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 1rem;
+      font-weight: 950;
+    }
+
+    .pixel-size-range {
+      display: block;
+      width: 100%;
+      height: 6px;
+      margin: 0;
+      accent-color: var(--purple);
+      cursor: pointer;
+    }
+
+    .pixel-size-footer {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.68rem;
+      font-weight: 800;
+    }
+
+    .pixel-presets {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .pixel-preset {
+      min-width: 48px;
+      min-height: 42px;
+      padding: 0 10px;
+      border: 2px solid var(--ink);
+      border-radius: 9px;
+      color: var(--ink);
+      background: #fff;
+      cursor: pointer;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.72rem;
+      font-weight: 900;
+    }
+
+    .pixel-preset:hover,
+    .pixel-preset.active {
+      color: #fff;
+      background: var(--purple);
+    }
+
+    .pixel-size-hint {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 0.66rem;
+      font-weight: 650;
+      line-height: 1.55;
     }
 
     .options-title {
@@ -929,6 +1018,10 @@
         font-size: 1.55rem;
       }
 
+      .size-stamp.compact strong {
+        font-size: 1.2rem;
+      }
+
       .size-stamp span {
         font-size: 0.57rem;
       }
@@ -973,6 +1066,22 @@
       .grid-toggle {
         justify-content: center;
       }
+
+      .pixel-size-footer {
+        flex-wrap: wrap;
+      }
+
+      .pixel-presets {
+        order: 3;
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .pixel-preset {
+        min-width: 0;
+        padding: 0 6px;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -989,12 +1098,12 @@
   <main class="app-shell">
     <header class="hero">
       <div>
-        <p class="eyebrow">18 × 18 PIXEL MAKER</p>
-        <h1>Twitchサブスク<br>バッチつくるくん</h1>
-        <p class="hero-copy">好きな画像を正方形に切り抜いて、ちいさくても見やすいピクセルアートに。画像を動かすだけで、18×18 PNGができあがります。</p>
+        <p class="eyebrow">IMAGE TO PIXEL ART</p>
+        <h1>Pixelater</h1>
+        <p class="hero-copy">好きな画像を正方形に切り抜いて、ちいさくても見やすいピクセルアートに。8〜256ドットから、好きな細かさのPNGを作れます。</p>
       </div>
-      <div class="size-stamp" aria-label="出力サイズ 18かける18ピクセル">
-        <div><strong>18×18</strong><span>PIXELS</span></div>
+      <div class="size-stamp" id="sizeStamp" aria-label="出力サイズ 18かける18ピクセル">
+        <div><strong id="sizeStampValue">18×18</strong><span>PIXELS</span></div>
       </div>
     </header>
 
@@ -1060,7 +1169,7 @@
           <span class="step-number" aria-hidden="true">02</span>
           <div>
             <h2 id="resultHeading">18×18に仕上げる</h2>
-            <p>色数を選んで、PNGで保存</p>
+            <p>ドット数と色数を選んで、PNGで保存</p>
           </div>
         </div>
 
@@ -1069,16 +1178,35 @@
             <canvas id="previewCanvas" width="18" height="18" aria-label="18かける18ピクセルの変換結果"></canvas>
             <div class="pixel-grid" aria-hidden="true"></div>
             <div class="preview-empty">
-              <div><span class="empty-18">18×18</span><small>画像を選ぶと<br>ここにプレビューが出ます</small></div>
+              <div><span class="empty-size" id="emptySize">18×18</span><small>画像を選ぶと<br>ここにプレビューが出ます</small></div>
             </div>
           </div>
 
           <div class="preview-stats">
             <div class="stat-main">
               <span class="actual-pixel-wrap" aria-hidden="true"><canvas id="actualCanvas" width="18" height="18"></canvas></span>
-              <span class="stat-copy"><strong>18 × 18 px</strong><span>左は実際の表示サイズ</span></span>
+              <span class="stat-copy"><strong id="statSize">18 × 18 px</strong><span id="actualSizeNote">左は実際の表示サイズ</span></span>
             </div>
             <label class="grid-toggle"><input id="gridToggle" type="checkbox">グリッドを表示</label>
+          </div>
+
+          <div class="pixel-size-card">
+            <div class="pixel-size-topline">
+              <label for="pixelSizeRange">ドット数</label>
+              <output class="pixel-size-value" id="pixelSizeValue" for="pixelSizeRange">18 × 18</output>
+            </div>
+            <input class="pixel-size-range" id="pixelSizeRange" type="range" min="8" max="256" value="18" step="1" aria-describedby="pixelSizeHint">
+            <div class="pixel-size-footer">
+              <span>8</span>
+              <div class="pixel-presets">
+                <button class="pixel-preset active" type="button" data-pixel-preset="18" aria-pressed="true">18</button>
+                <button class="pixel-preset" type="button" data-pixel-preset="36" aria-pressed="false">36</button>
+                <button class="pixel-preset" type="button" data-pixel-preset="72" aria-pressed="false">72</button>
+                <button class="pixel-preset" type="button" data-pixel-preset="256" aria-pressed="false">256</button>
+              </div>
+              <span>256</span>
+            </div>
+            <p class="pixel-size-hint" id="pixelSizeHint">数字が小さいほど粗く、大きいほど細かなドットになります。</p>
           </div>
 
           <div class="options-card">
@@ -1099,16 +1227,16 @@
             </div>
           </div>
 
-          <button class="primary-button" id="download18" type="button" disabled>18×18 PNGを保存</button>
+          <button class="primary-button" id="downloadPrimary" type="button" disabled>18×18 PNGを保存</button>
           <div class="scaled-downloads" aria-label="ピクセルを保った拡大版を保存">
-            <button class="scaled-button" id="download36" type="button" disabled>36×36 拡大版</button>
-            <button class="scaled-button" id="download72" type="button" disabled>72×72 拡大版</button>
+            <button class="scaled-button" id="downloadDouble" type="button" disabled>36×36（2倍）</button>
+            <button class="scaled-button" id="downloadQuad" type="button" disabled>72×72（4倍）</button>
           </div>
         </div>
       </section>
     </section>
 
-    <p class="usage-tip"><span class="tip-mark" aria-hidden="true">!</span><span>小さなバッチは、顔やマークを大きく切り抜き、色数を8〜16色にすると輪郭が伝わりやすくなります。拡大版も18×18の結果をそのまま整数倍しているため、ぼやけません。</span></p>
+    <p class="usage-tip"><span class="tip-mark" aria-hidden="true">!</span><span>小さなアイコンは、顔やマークを大きく切り抜き、色数を8〜16色にすると輪郭が伝わりやすくなります。拡大版は選んだドット数の結果をそのまま整数倍するため、ぼやけません。</span></p>
     <p id="liveStatus" class="sr-only" aria-live="polite"></p>
   </main>
 
@@ -1133,9 +1261,13 @@
       "use strict";
 
       const VIEW_SIZE = 720;
-      const PIXEL_SIZE = 18;
-      const SAMPLE_SCALE = 10;
-      const SAMPLE_SIZE = PIXEL_SIZE * SAMPLE_SCALE;
+      const DEFAULT_PIXEL_SIZE = 18;
+      const MIN_PIXEL_SIZE = 8;
+      const MAX_PIXEL_SIZE = 256;
+      const TARGET_SAMPLE_EDGE = 180;
+      const MIN_SAMPLE_SCALE = 2;
+      const MAX_SAMPLE_SCALE = 10;
+      const MAX_PALETTE_SAMPLES = 8192;
       const MAX_SOURCE_EDGE = 4096;
       const MAX_FILE_BYTES = 32 * 1024 * 1024;
       const MAX_SOURCE_PIXELS = 80_000_000;
@@ -1148,8 +1280,8 @@
       const actualContext = actualCanvas.getContext("2d", { alpha: true });
       const samplingCanvas = document.createElement("canvas");
       const samplingContext = samplingCanvas.getContext("2d", { alpha: true, willReadFrequently: true });
-      samplingCanvas.width = SAMPLE_SIZE;
-      samplingCanvas.height = SAMPLE_SIZE;
+      samplingCanvas.width = DEFAULT_PIXEL_SIZE * MAX_SAMPLE_SCALE;
+      samplingCanvas.height = DEFAULT_PIXEL_SIZE * MAX_SAMPLE_SCALE;
 
       const srgbToLinear = new Float32Array(256);
       for (let channel = 0; channel < 256; channel += 1) {
@@ -1171,11 +1303,21 @@
         zoomIn: document.getElementById("zoomIn"),
         resetCrop: document.getElementById("resetCrop"),
         previewShell: document.getElementById("previewShell"),
+        previewCanvas,
+        actualCanvas,
+        resultHeading: document.getElementById("resultHeading"),
+        sizeStamp: document.getElementById("sizeStamp"),
+        sizeStampValue: document.getElementById("sizeStampValue"),
+        emptySize: document.getElementById("emptySize"),
+        statSize: document.getElementById("statSize"),
+        actualSizeNote: document.getElementById("actualSizeNote"),
+        pixelSizeRange: document.getElementById("pixelSizeRange"),
+        pixelSizeValue: document.getElementById("pixelSizeValue"),
         gridToggle: document.getElementById("gridToggle"),
         ditherToggle: document.getElementById("ditherToggle"),
-        download18: document.getElementById("download18"),
-        download36: document.getElementById("download36"),
-        download72: document.getElementById("download72"),
+        downloadPrimary: document.getElementById("downloadPrimary"),
+        downloadDouble: document.getElementById("downloadDouble"),
+        downloadQuad: document.getElementById("downloadQuad"),
         errorMessage: document.getElementById("errorMessage"),
         liveStatus: document.getElementById("liveStatus")
       };
@@ -1190,6 +1332,7 @@
         zoom: 1,
         panX: 0,
         panY: 0,
+        pixelSize: DEFAULT_PIXEL_SIZE,
         colors: 16,
         dither: false,
         pointers: new Map(),
@@ -1217,6 +1360,59 @@
 
       function clamp(value, min, max) {
         return Math.min(max, Math.max(min, value));
+      }
+
+      function syncPixelSizeUI() {
+        const size = state.pixelSize;
+        const sizeLabel = `${size}×${size}`;
+        const spokenLabel = `${size}かける${size}ピクセル`;
+
+        if (previewCanvas.width !== size || previewCanvas.height !== size) {
+          previewCanvas.width = size;
+          previewCanvas.height = size;
+        }
+        if (actualCanvas.width !== size || actualCanvas.height !== size) {
+          actualCanvas.width = size;
+          actualCanvas.height = size;
+        }
+
+        actualCanvas.style.width = `${size}px`;
+        actualCanvas.style.height = `${size}px`;
+        elements.previewShell.style.setProperty("--grid-cell", `${100 / size}%`);
+        elements.previewCanvas.setAttribute("aria-label", `${spokenLabel}の変換結果`);
+        elements.pixelSizeRange.value = String(size);
+        elements.pixelSizeRange.setAttribute("aria-valuetext", `${size}かける${size}ドット`);
+        elements.pixelSizeValue.value = `${size} × ${size}`;
+        elements.pixelSizeValue.textContent = `${size} × ${size}`;
+        elements.resultHeading.textContent = `${sizeLabel}に仕上げる`;
+        elements.sizeStamp.classList.toggle("compact", size >= 100);
+        elements.sizeStamp.setAttribute("aria-label", `出力サイズ ${spokenLabel}`);
+        elements.sizeStampValue.textContent = sizeLabel;
+        elements.emptySize.textContent = sizeLabel;
+        elements.statSize.textContent = `${size} × ${size} px`;
+        elements.actualSizeNote.textContent = size <= 72
+          ? "左は実際の表示サイズ"
+          : "左は最大72pxに縮小表示";
+        elements.downloadPrimary.textContent = `${sizeLabel} PNGを保存`;
+        elements.downloadDouble.textContent = `${size * 2}×${size * 2}（2倍）`;
+        elements.downloadQuad.textContent = `${size * 4}×${size * 4}（4倍）`;
+
+        document.querySelectorAll("[data-pixel-preset]").forEach((button) => {
+          const active = Number(button.dataset.pixelPreset) === size;
+          button.classList.toggle("active", active);
+          button.setAttribute("aria-pressed", String(active));
+        });
+      }
+
+      function setPixelSize(value, announceChange = false) {
+        const parsed = Number(value);
+        const nextSize = Number.isFinite(parsed)
+          ? Math.round(clamp(parsed, MIN_PIXEL_SIZE, MAX_PIXEL_SIZE))
+          : DEFAULT_PIXEL_SIZE;
+        state.pixelSize = nextSize;
+        syncPixelSizeUI();
+        queueRender();
+        if (announceChange) announce(`ドット数を${nextSize}かける${nextSize}に変更しました。`);
       }
 
       function getSourceSize(source) {
@@ -1283,22 +1479,22 @@
         return Math.round(converted * 255);
       }
 
-      function downsampleToPixels(sampled) {
-        const output = new ImageData(PIXEL_SIZE, PIXEL_SIZE);
-        const samplesPerPixel = SAMPLE_SCALE * SAMPLE_SCALE;
+      function downsampleToPixels(sampled, pixelSize, sampleScale, sampleSize) {
+        const output = new ImageData(pixelSize, pixelSize);
+        const samplesPerPixel = sampleScale * sampleScale;
 
-        for (let pixelY = 0; pixelY < PIXEL_SIZE; pixelY += 1) {
-          for (let pixelX = 0; pixelX < PIXEL_SIZE; pixelX += 1) {
+        for (let pixelY = 0; pixelY < pixelSize; pixelY += 1) {
+          for (let pixelX = 0; pixelX < pixelSize; pixelX += 1) {
             let alphaSum = 0;
             let redSum = 0;
             let greenSum = 0;
             let blueSum = 0;
 
-            for (let sampleY = 0; sampleY < SAMPLE_SCALE; sampleY += 1) {
-              const y = pixelY * SAMPLE_SCALE + sampleY;
-              for (let sampleX = 0; sampleX < SAMPLE_SCALE; sampleX += 1) {
-                const x = pixelX * SAMPLE_SCALE + sampleX;
-                const index = (y * SAMPLE_SIZE + x) * 4;
+            for (let sampleY = 0; sampleY < sampleScale; sampleY += 1) {
+              const y = pixelY * sampleScale + sampleY;
+              for (let sampleX = 0; sampleX < sampleScale; sampleX += 1) {
+                const x = pixelX * sampleScale + sampleX;
+                const index = (y * sampleSize + x) * 4;
                 const alpha = sampled.data[index + 3] / 255;
                 alphaSum += alpha;
                 redSum += srgbToLinear[sampled.data[index]] * alpha;
@@ -1307,7 +1503,7 @@
               }
             }
 
-            const outputIndex = (pixelY * PIXEL_SIZE + pixelX) * 4;
+            const outputIndex = (pixelY * pixelSize + pixelX) * 4;
             if (alphaSum > 0.0001) {
               output.data[outputIndex] = linearToSrgb(redSum / alphaSum);
               output.data[outputIndex + 1] = linearToSrgb(greenSum / alphaSum);
@@ -1334,7 +1530,7 @@
       }
 
       function makePalette(data, requestedColors) {
-        const pixels = [];
+        const allPixels = [];
         const unique = new Map();
 
         for (let index = 0; index < data.length; index += 4) {
@@ -1342,11 +1538,31 @@
           const color = [data[index], data[index + 1], data[index + 2]];
           const key = color.join(",");
           if (!unique.has(key)) unique.set(key, color);
-          pixels.push(color);
+          allPixels.push(color);
         }
 
-        if (pixels.length === 0) return [];
+        if (allPixels.length === 0) return [];
         if (unique.size <= requestedColors) return Array.from(unique.values());
+
+        let sampleState = (allPixels.length ^ (requestedColors << 16) ^ 0xa511e9b3) >>> 0;
+        function nextSampleOffset() {
+          sampleState ^= sampleState << 13;
+          sampleState ^= sampleState >>> 17;
+          sampleState ^= sampleState << 5;
+          return (sampleState >>> 0) / 4294967296;
+        }
+
+        const pixels = allPixels.length <= MAX_PALETTE_SAMPLES
+          ? allPixels
+          : Array.from({ length: MAX_PALETTE_SAMPLES }, (_, index) => {
+            const bucketStart = index * allPixels.length / MAX_PALETTE_SAMPLES;
+            const bucketEnd = (index + 1) * allPixels.length / MAX_PALETTE_SAMPLES;
+            const sampledIndex = Math.min(
+              allPixels.length - 1,
+              Math.floor(bucketStart + nextSampleOffset() * (bucketEnd - bucketStart))
+            );
+            return allPixels[sampledIndex];
+          });
 
         const mean = [0, 0, 0];
         pixels.forEach((pixel) => {
@@ -1465,17 +1681,29 @@
       }
 
       function drawPixelResult() {
-        previewContext.clearRect(0, 0, PIXEL_SIZE, PIXEL_SIZE);
-        actualContext.clearRect(0, 0, PIXEL_SIZE, PIXEL_SIZE);
+        const pixelSize = state.pixelSize;
+        const sampleScale = clamp(
+          Math.ceil(TARGET_SAMPLE_EDGE / pixelSize),
+          MIN_SAMPLE_SCALE,
+          MAX_SAMPLE_SCALE
+        );
+        const sampleSize = pixelSize * sampleScale;
+
+        previewContext.clearRect(0, 0, pixelSize, pixelSize);
+        actualContext.clearRect(0, 0, pixelSize, pixelSize);
         if (!state.source) return;
 
-        samplingContext.clearRect(0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+        if (samplingCanvas.width !== sampleSize || samplingCanvas.height !== sampleSize) {
+          samplingCanvas.width = sampleSize;
+          samplingCanvas.height = sampleSize;
+        }
+        samplingContext.clearRect(0, 0, sampleSize, sampleSize);
         samplingContext.imageSmoothingEnabled = true;
         samplingContext.imageSmoothingQuality = "high";
-        drawSource(samplingContext, SAMPLE_SIZE);
+        drawSource(samplingContext, sampleSize);
 
-        const sourceSamples = samplingContext.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
-        const sampled = downsampleToPixels(sourceSamples);
+        const sourceSamples = samplingContext.getImageData(0, 0, sampleSize, sampleSize);
+        const sampled = downsampleToPixels(sourceSamples, pixelSize, sampleScale, sampleSize);
         const result = quantizeImage(sampled, state.colors, state.dither);
         previewContext.putImageData(result, 0, 0);
         actualContext.putImageData(result, 0, 0);
@@ -1580,7 +1808,7 @@
           elements.editorBody.classList.add("has-image");
           elements.cropStage.classList.add("loaded");
           elements.previewShell.classList.add("ready");
-          [elements.zoomRange, elements.zoomOut, elements.zoomIn, elements.resetCrop, elements.download18, elements.download36, elements.download72].forEach((element) => {
+          [elements.zoomRange, elements.zoomOut, elements.zoomIn, elements.resetCrop, elements.downloadPrimary, elements.downloadDouble, elements.downloadQuad].forEach((element) => {
             element.disabled = false;
           });
 
@@ -1781,6 +2009,20 @@
         announce("切り抜きを中央に戻しました。");
       });
 
+      elements.pixelSizeRange.addEventListener("input", () => {
+        setPixelSize(elements.pixelSizeRange.value);
+      });
+
+      elements.pixelSizeRange.addEventListener("change", () => {
+        announce(`ドット数を${state.pixelSize}かける${state.pixelSize}に変更しました。`);
+      });
+
+      document.querySelectorAll("[data-pixel-preset]").forEach((button) => {
+        button.addEventListener("click", () => {
+          setPixelSize(button.dataset.pixelPreset, true);
+        });
+      });
+
       document.querySelectorAll('input[name="colors"]').forEach((input) => {
         input.addEventListener("change", () => {
           state.colors = Number(document.querySelector('input[name="colors"]:checked').value);
@@ -1800,11 +2042,12 @@
       function safeFileStem(name) {
         const withoutExtension = name.replace(/\.[^.]+$/, "");
         const normalized = withoutExtension.normalize("NFKC").replace(/[\\/:*?"<>|]+/g, "-").trim();
-        return normalized || "twitch-sub-badge";
+        return normalized || "pixelater";
       }
 
       function triggerDownload(size) {
         if (!state.source) return;
+        if (state.renderQueued) drawPixelResult();
         const output = document.createElement("canvas");
         output.width = size;
         output.height = size;
@@ -1830,10 +2073,11 @@
         }, "image/png");
       }
 
-      elements.download18.addEventListener("click", () => triggerDownload(18));
-      elements.download36.addEventListener("click", () => triggerDownload(36));
-      elements.download72.addEventListener("click", () => triggerDownload(72));
+      elements.downloadPrimary.addEventListener("click", () => triggerDownload(state.pixelSize));
+      elements.downloadDouble.addEventListener("click", () => triggerDownload(state.pixelSize * 2));
+      elements.downloadQuad.addEventListener("click", () => triggerDownload(state.pixelSize * 4));
 
+      syncPixelSizeUI();
       render();
     })();
   </script>
