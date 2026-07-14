@@ -1,0 +1,1841 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="画像を正方形に切り抜き、18×18のピクセルアートへ変換できるブラウザアプリ。">
+  <title>Twitchサブスクバッチつくるくん</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17131f;
+      --muted: #6f687b;
+      --paper: #fbfaff;
+      --surface: #ffffff;
+      --line: #d9d3e5;
+      --purple: #7447f5;
+      --purple-dark: #4d27bc;
+      --purple-pale: #eee9ff;
+      --lime: #caff66;
+      --red: #b72f3c;
+      --shadow: 7px 7px 0 var(--ink);
+      --radius: 22px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-width: 320px;
+      background: #ede8f8;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 11% 8%, rgba(202, 255, 102, 0.52) 0 4px, transparent 5px),
+        radial-gradient(circle at 91% 20%, rgba(116, 71, 245, 0.18) 0 7px, transparent 8px),
+        linear-gradient(145deg, #f8f6ff 0%, #eee9fb 56%, #f7f5fc 100%);
+      font-family: ui-rounded, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button,
+    label[for="fileInput"] {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    [tabindex]:focus-visible,
+    label[for="fileInput"]:focus-within {
+      outline: 4px solid var(--lime);
+      outline-offset: 3px;
+    }
+
+    .app-shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 36px 0 48px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 30px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      margin: 0 0 10px;
+      color: var(--purple-dark);
+      font-size: 0.78rem;
+      font-weight: 900;
+      letter-spacing: 0.14em;
+    }
+
+    .eyebrow::before {
+      width: 11px;
+      height: 11px;
+      content: "";
+      background: var(--purple);
+      box-shadow: 6px 6px 0 var(--lime);
+    }
+
+    h1 {
+      max-width: 820px;
+      margin: 0;
+      font-size: clamp(2rem, 5.2vw, 4.55rem);
+      font-weight: 950;
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+    }
+
+    .hero-copy {
+      max-width: 650px;
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: clamp(0.96rem, 1.5vw, 1.08rem);
+      font-weight: 650;
+      line-height: 1.75;
+    }
+
+    .size-stamp {
+      display: grid;
+      width: 126px;
+      aspect-ratio: 1;
+      place-items: center;
+      transform: rotate(3deg);
+      border: 3px solid var(--ink);
+      border-radius: 20px;
+      background: var(--lime);
+      box-shadow: 6px 6px 0 var(--purple);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-align: center;
+    }
+
+    .size-stamp strong {
+      display: block;
+      font-size: 2.1rem;
+      line-height: 0.9;
+      letter-spacing: -0.1em;
+    }
+
+    .size-stamp span {
+      display: block;
+      margin-top: 7px;
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+    }
+
+    .privacy-note {
+      display: flex;
+      gap: 9px;
+      align-items: center;
+      width: fit-content;
+      margin: 0 0 20px;
+      padding: 8px 12px;
+      border: 1px solid #cfc6e6;
+      border-radius: 999px;
+      color: #554d64;
+      background: rgba(255, 255, 255, 0.74);
+      font-size: 0.78rem;
+      font-weight: 750;
+    }
+
+    .privacy-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #31a45d;
+      box-shadow: 0 0 0 3px rgba(49, 164, 93, 0.14);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+      gap: 26px;
+      align-items: start;
+    }
+
+    .panel {
+      border: 3px solid var(--ink);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-heading {
+      display: flex;
+      min-height: 74px;
+      gap: 13px;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 2px solid var(--ink);
+      background: var(--paper);
+    }
+
+    .step-number {
+      display: grid;
+      flex: 0 0 auto;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      color: #fff;
+      background: var(--purple);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-weight: 900;
+      box-shadow: 3px 3px 0 var(--ink);
+    }
+
+    .panel-heading h2 {
+      margin: 0;
+      font-size: 1.14rem;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+    }
+
+    .panel-heading p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 650;
+    }
+
+    .editor-body {
+      padding: 20px;
+    }
+
+    .crop-stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      border: 2px solid var(--ink);
+      border-radius: 16px;
+      background-color: #f3f0f8;
+      background-image:
+        linear-gradient(45deg, #ddd6e8 25%, transparent 25%),
+        linear-gradient(-45deg, #ddd6e8 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ddd6e8 75%),
+        linear-gradient(-45deg, transparent 75%, #ddd6e8 75%);
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+      background-size: 24px 24px;
+      cursor: grab;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .crop-stage.loaded {
+      touch-action: none;
+    }
+
+    .crop-stage:focus-within {
+      outline: 4px solid var(--lime);
+      outline-offset: 3px;
+    }
+
+    .crop-stage.dragging {
+      cursor: grabbing;
+    }
+
+    .crop-stage.drag-over {
+      outline: 6px solid var(--lime);
+      outline-offset: -8px;
+    }
+
+    #cropCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .crop-guide {
+      position: absolute;
+      inset: 0;
+      display: none;
+      pointer-events: none;
+      background-image:
+        linear-gradient(to right, transparent calc(33.333% - 0.5px), rgba(255, 255, 255, 0.74) 33.333%, transparent calc(33.333% + 0.5px)),
+        linear-gradient(to right, transparent calc(66.666% - 0.5px), rgba(255, 255, 255, 0.74) 66.666%, transparent calc(66.666% + 0.5px)),
+        linear-gradient(to bottom, transparent calc(33.333% - 0.5px), rgba(255, 255, 255, 0.74) 33.333%, transparent calc(33.333% + 0.5px)),
+        linear-gradient(to bottom, transparent calc(66.666% - 0.5px), rgba(255, 255, 255, 0.74) 66.666%, transparent calc(66.666% + 0.5px));
+      box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.72), inset 0 0 0 4px rgba(23, 19, 31, 0.45);
+    }
+
+    .crop-stage.loaded .crop-guide {
+      display: block;
+    }
+
+    .upload-empty {
+      position: absolute;
+      inset: 14px;
+      display: grid;
+      place-items: center;
+      border: 2px dashed #8f80aa;
+      border-radius: 12px;
+      background: rgba(251, 250, 255, 0.94);
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .crop-stage.loaded .upload-empty {
+      display: none;
+    }
+
+    .upload-inner {
+      max-width: 330px;
+      padding: 24px;
+    }
+
+    .upload-pixels {
+      display: grid;
+      grid-template-columns: repeat(3, 13px);
+      gap: 4px;
+      width: fit-content;
+      margin: 0 auto 18px;
+      transform: rotate(-4deg);
+    }
+
+    .upload-pixels i {
+      display: block;
+      width: 13px;
+      height: 13px;
+      background: var(--purple);
+    }
+
+    .upload-pixels i:nth-child(2),
+    .upload-pixels i:nth-child(4),
+    .upload-pixels i:nth-child(8) {
+      background: var(--lime);
+    }
+
+    .upload-pixels i:nth-child(3),
+    .upload-pixels i:nth-child(7) {
+      opacity: 0;
+    }
+
+    .upload-title {
+      display: block;
+      margin-bottom: 8px;
+      font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+      font-weight: 900;
+    }
+
+    .upload-copy {
+      display: block;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 650;
+      line-height: 1.7;
+    }
+
+    .upload-button {
+      display: inline-flex;
+      min-height: 46px;
+      align-items: center;
+      justify-content: center;
+      margin-top: 18px;
+      padding: 0 18px;
+      border: 2px solid var(--ink);
+      border-radius: 12px;
+      color: #fff;
+      background: var(--purple);
+      box-shadow: 4px 4px 0 var(--ink);
+      font-size: 0.88rem;
+      font-weight: 900;
+    }
+
+    #fileInput {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .file-bar {
+      display: none;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #faf9fc;
+    }
+
+    .editor-body.has-image .file-bar {
+      display: flex;
+    }
+
+    .file-meta {
+      min-width: 0;
+    }
+
+    .file-name {
+      display: block;
+      overflow: hidden;
+      font-size: 0.82rem;
+      font-weight: 850;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-size {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.7rem;
+    }
+
+    .subtle-button {
+      min-height: 40px;
+      flex: 0 0 auto;
+      padding: 0 13px;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      color: var(--ink);
+      background: #fff;
+      cursor: pointer;
+      font-size: 0.76rem;
+      font-weight: 850;
+    }
+
+    .subtle-button:hover {
+      background: var(--purple-pale);
+    }
+
+    .controls {
+      display: grid;
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .control-block {
+      display: grid;
+      gap: 9px;
+    }
+
+    .control-topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .control-label {
+      font-size: 0.82rem;
+      font-weight: 900;
+    }
+
+    .control-value {
+      color: var(--purple-dark);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.76rem;
+      font-weight: 850;
+    }
+
+    .zoom-row {
+      display: grid;
+      grid-template-columns: 44px 1fr 44px 86px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .square-button {
+      display: grid;
+      min-width: 44px;
+      min-height: 44px;
+      place-items: center;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      color: var(--ink);
+      background: #fff;
+      cursor: pointer;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 1.2rem;
+      font-weight: 900;
+    }
+
+    .square-button:hover:not(:disabled),
+    .reset-button:hover:not(:disabled) {
+      background: var(--purple-pale);
+    }
+
+    button:disabled,
+    input:disabled {
+      cursor: not-allowed;
+      opacity: 0.42;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 5px;
+      border-radius: 99px;
+      accent-color: var(--purple);
+      cursor: pointer;
+    }
+
+    .reset-button {
+      min-height: 44px;
+      padding: 0 12px;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 0.76rem;
+      font-weight: 900;
+    }
+
+    .format-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 620;
+      line-height: 1.6;
+    }
+
+    .result-body {
+      padding: 20px;
+    }
+
+    .preview-shell {
+      position: relative;
+      width: min(100%, 450px);
+      aspect-ratio: 1;
+      margin: 0 auto;
+      border: 2px solid var(--ink);
+      border-radius: 16px;
+      background-color: #f3f0f8;
+      background-image:
+        linear-gradient(45deg, #ddd6e8 25%, transparent 25%),
+        linear-gradient(-45deg, #ddd6e8 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ddd6e8 75%),
+        linear-gradient(-45deg, transparent 75%, #ddd6e8 75%);
+      background-position: 0 0, 0 14px, 14px -14px, -14px 0;
+      background-size: 28px 28px;
+      overflow: hidden;
+    }
+
+    #previewCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .pixel-grid {
+      position: absolute;
+      inset: 0;
+      display: none;
+      pointer-events: none;
+      background-image:
+        linear-gradient(to right, rgba(23, 19, 31, 0.22) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(23, 19, 31, 0.22) 1px, transparent 1px);
+      background-size: 5.5555556% 5.5555556%;
+      box-shadow: inset 0 0 0 1px rgba(23, 19, 31, 0.22);
+    }
+
+    .preview-shell.grid-on .pixel-grid {
+      display: block;
+    }
+
+    .preview-empty {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 30px;
+      color: #6d6380;
+      background: rgba(249, 247, 253, 0.92);
+      text-align: center;
+    }
+
+    .preview-shell.ready .preview-empty {
+      display: none;
+    }
+
+    .empty-18 {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--purple-dark);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: clamp(1.8rem, 6vw, 3.2rem);
+      font-weight: 950;
+      letter-spacing: -0.09em;
+    }
+
+    .preview-empty small {
+      font-size: 0.8rem;
+      font-weight: 750;
+      line-height: 1.6;
+    }
+
+    .preview-stats {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin: 14px 0 18px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #faf9fc;
+    }
+
+    .stat-main {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .actual-pixel-wrap {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    #actualCanvas {
+      width: 18px;
+      height: 18px;
+      image-rendering: pixelated;
+    }
+
+    .stat-copy strong {
+      display: block;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+    }
+
+    .stat-copy span {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 650;
+    }
+
+    .grid-toggle {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      min-height: 42px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.72rem;
+      font-weight: 850;
+    }
+
+    .grid-toggle input {
+      width: 17px;
+      height: 17px;
+      accent-color: var(--purple);
+    }
+
+    .options-card {
+      margin-bottom: 18px;
+      padding: 15px;
+      border: 2px solid var(--ink);
+      border-radius: 14px;
+      background: var(--purple-pale);
+    }
+
+    .options-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin: 0 0 11px;
+    }
+
+    .options-title strong {
+      font-size: 0.82rem;
+      font-weight: 900;
+    }
+
+    .options-title span {
+      color: var(--muted);
+      font-size: 0.66rem;
+      font-weight: 700;
+    }
+
+    .palette-options {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+    }
+
+    .palette-option {
+      position: relative;
+      min-width: 0;
+    }
+
+    .palette-option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .palette-option span {
+      display: grid;
+      min-height: 42px;
+      place-items: center;
+      border: 2px solid var(--ink);
+      border-radius: 9px;
+      background: #fff;
+      cursor: pointer;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.72rem;
+      font-weight: 900;
+    }
+
+    .palette-option input:checked + span {
+      color: #fff;
+      background: var(--purple);
+      box-shadow: 3px 3px 0 var(--ink);
+      transform: translate(-1px, -1px);
+    }
+
+    .palette-option input:focus-visible + span {
+      outline: 4px solid var(--lime);
+      outline-offset: 2px;
+    }
+
+    .dither-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #cfc5ec;
+    }
+
+    .dither-copy strong {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 900;
+    }
+
+    .dither-copy span {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 0.66rem;
+      font-weight: 650;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      flex: 0 0 auto;
+      width: 52px;
+      height: 30px;
+    }
+
+    .switch input {
+      position: absolute;
+      opacity: 0;
+    }
+
+    .switch-track {
+      position: absolute;
+      inset: 0;
+      border: 2px solid var(--ink);
+      border-radius: 99px;
+      background: #fff;
+      cursor: pointer;
+      transition: background 160ms ease;
+    }
+
+    .switch-track::after {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: 18px;
+      height: 18px;
+      content: "";
+      border-radius: 50%;
+      background: var(--ink);
+      transition: transform 160ms ease, background 160ms ease;
+    }
+
+    .switch input:checked + .switch-track {
+      background: var(--lime);
+    }
+
+    .switch input:checked + .switch-track::after {
+      transform: translateX(22px);
+      background: var(--purple-dark);
+    }
+
+    .switch input:focus-visible + .switch-track {
+      outline: 4px solid var(--lime);
+      outline-offset: 3px;
+    }
+
+    .primary-button {
+      display: flex;
+      width: 100%;
+      min-height: 56px;
+      align-items: center;
+      justify-content: center;
+      border: 3px solid var(--ink);
+      border-radius: 13px;
+      color: #fff;
+      background: var(--purple);
+      box-shadow: 5px 5px 0 var(--ink);
+      cursor: pointer;
+      font-weight: 950;
+      letter-spacing: 0.01em;
+      transition: transform 100ms ease, box-shadow 100ms ease, background 140ms ease;
+    }
+
+    .primary-button:hover:not(:disabled) {
+      background: var(--purple-dark);
+    }
+
+    .primary-button:active:not(:disabled) {
+      transform: translate(4px, 4px);
+      box-shadow: 1px 1px 0 var(--ink);
+    }
+
+    .scaled-downloads {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .scaled-button {
+      min-height: 44px;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 0.73rem;
+      font-weight: 850;
+    }
+
+    .scaled-button:hover:not(:disabled) {
+      background: var(--lime);
+    }
+
+    .error-message {
+      display: none;
+      margin: 14px 0 0;
+      padding: 11px 12px;
+      border: 1px solid #edb2ba;
+      border-radius: 10px;
+      color: #861f2b;
+      background: #fff0f2;
+      font-size: 0.76rem;
+      font-weight: 750;
+      line-height: 1.55;
+    }
+
+    .error-message.visible {
+      display: block;
+    }
+
+    .usage-tip {
+      display: flex;
+      gap: 10px;
+      margin: 26px 8px 0;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 650;
+      line-height: 1.65;
+    }
+
+    .tip-mark {
+      display: grid;
+      flex: 0 0 auto;
+      width: 23px;
+      height: 23px;
+      place-items: center;
+      border-radius: 7px;
+      color: #fff;
+      background: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.72rem;
+      font-weight: 900;
+    }
+
+    .noscript {
+      margin: 20px;
+      padding: 16px;
+      border: 2px solid var(--red);
+      border-radius: 12px;
+      color: var(--red);
+      background: #fff;
+      font-weight: 800;
+    }
+
+    @media (max-width: 900px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .result-panel {
+        max-width: 650px;
+        width: 100%;
+        margin: 0 auto;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .app-shell {
+        width: min(100% - 20px, 560px);
+        padding: 24px 0 32px;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+        gap: 18px;
+      }
+
+      .size-stamp {
+        width: 92px;
+        grid-row: 1;
+        justify-self: end;
+        margin-bottom: -78px;
+      }
+
+      .size-stamp strong {
+        font-size: 1.55rem;
+      }
+
+      .size-stamp span {
+        font-size: 0.57rem;
+      }
+
+      h1 {
+        max-width: calc(100% - 82px);
+        font-size: clamp(2rem, 11vw, 3.4rem);
+      }
+
+      .panel {
+        border-width: 2px;
+        box-shadow: 5px 5px 0 var(--ink);
+      }
+
+      .editor-body,
+      .result-body {
+        padding: 14px;
+      }
+
+      .panel-heading {
+        min-height: 68px;
+        padding: 14px;
+      }
+
+      .zoom-row {
+        grid-template-columns: 44px 1fr 44px;
+      }
+
+      .reset-button {
+        grid-column: 1 / -1;
+      }
+
+      .palette-options {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .preview-stats {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .grid-toggle {
+        justify-content: center;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">18 × 18 PIXEL MAKER</p>
+        <h1>Twitchサブスク<br>バッチつくるくん</h1>
+        <p class="hero-copy">好きな画像を正方形に切り抜いて、ちいさくても見やすいピクセルアートに。画像を動かすだけで、18×18 PNGができあがります。</p>
+      </div>
+      <div class="size-stamp" aria-label="出力サイズ 18かける18ピクセル">
+        <div><strong>18×18</strong><span>PIXELS</span></div>
+      </div>
+    </header>
+
+    <p class="privacy-note"><span class="privacy-dot" aria-hidden="true"></span>画像はこのブラウザの中だけで処理。外部には送信しません。</p>
+
+    <section class="workspace" aria-label="ピクセルアート作成画面">
+      <section class="panel editor-panel" aria-labelledby="cropHeading">
+        <div class="panel-heading">
+          <span class="step-number" aria-hidden="true">01</span>
+          <div>
+            <h2 id="cropHeading">画像を切り抜く</h2>
+            <p>ドラッグで位置、ホイール・ピンチで大きさを調整</p>
+          </div>
+        </div>
+
+        <div class="editor-body" id="editorBody">
+          <div class="crop-stage" id="cropStage">
+            <canvas id="cropCanvas" width="720" height="720" tabindex="0" aria-label="正方形の切り抜き位置。画像読み込み後、ドラッグまたは矢印キーで位置を調整できます。"></canvas>
+            <div class="crop-guide" aria-hidden="true"></div>
+            <label class="upload-empty" id="dropZone" for="fileInput" tabindex="0">
+              <span class="upload-inner">
+                <span class="upload-pixels" aria-hidden="true">
+                  <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                </span>
+                <span class="upload-title">画像をここにドロップ</span>
+                <span class="upload-copy">またはクリックして画像を選ぶ<br>コピーした画像の貼り付けにも対応</span>
+                <span class="upload-button">画像を選ぶ</span>
+              </span>
+            </label>
+            <input id="fileInput" type="file" accept="image/*" aria-label="変換する画像を選ぶ" tabindex="-1">
+          </div>
+
+          <div class="file-bar" id="fileBar">
+            <div class="file-meta">
+              <span class="file-name" id="fileName">画像</span>
+              <span class="file-size" id="fileSize">0 × 0 px</span>
+            </div>
+            <label class="subtle-button" for="fileInput" tabindex="0">別の画像</label>
+          </div>
+
+          <div class="controls">
+            <div class="control-block">
+              <div class="control-topline">
+                <span class="control-label">拡大・縮小</span>
+                <output class="control-value" id="zoomValue" for="zoomRange">100%</output>
+              </div>
+              <div class="zoom-row">
+                <button class="square-button" id="zoomOut" type="button" aria-label="縮小" disabled>−</button>
+                <input id="zoomRange" type="range" min="100" max="400" value="100" step="1" aria-label="画像の拡大率" disabled>
+                <button class="square-button" id="zoomIn" type="button" aria-label="拡大" disabled>＋</button>
+                <button class="reset-button" id="resetCrop" type="button" disabled>中央に戻す</button>
+              </div>
+            </div>
+            <p class="format-note">JPEG・PNG・WebPなど、ブラウザが対応する32MB以下の画像。矢印キーで位置を微調整、Shift＋矢印で大きく移動できます。</p>
+          </div>
+
+          <p class="error-message" id="errorMessage" role="alert"></p>
+        </div>
+      </section>
+
+      <section class="panel result-panel" aria-labelledby="resultHeading">
+        <div class="panel-heading">
+          <span class="step-number" aria-hidden="true">02</span>
+          <div>
+            <h2 id="resultHeading">18×18に仕上げる</h2>
+            <p>色数を選んで、PNGで保存</p>
+          </div>
+        </div>
+
+        <div class="result-body">
+          <div class="preview-shell" id="previewShell">
+            <canvas id="previewCanvas" width="18" height="18" aria-label="18かける18ピクセルの変換結果"></canvas>
+            <div class="pixel-grid" aria-hidden="true"></div>
+            <div class="preview-empty">
+              <div><span class="empty-18">18×18</span><small>画像を選ぶと<br>ここにプレビューが出ます</small></div>
+            </div>
+          </div>
+
+          <div class="preview-stats">
+            <div class="stat-main">
+              <span class="actual-pixel-wrap" aria-hidden="true"><canvas id="actualCanvas" width="18" height="18"></canvas></span>
+              <span class="stat-copy"><strong>18 × 18 px</strong><span>左は実際の表示サイズ</span></span>
+            </div>
+            <label class="grid-toggle"><input id="gridToggle" type="checkbox">グリッドを表示</label>
+          </div>
+
+          <div class="options-card">
+            <p class="options-title"><strong>色数</strong><span>少ないほどレトロ</span></p>
+            <div class="palette-options" role="radiogroup" aria-label="ピクセルアートの色数">
+              <label class="palette-option"><input type="radio" name="colors" value="8"><span>8色</span></label>
+              <label class="palette-option"><input type="radio" name="colors" value="16" checked><span>16色</span></label>
+              <label class="palette-option"><input type="radio" name="colors" value="24"><span>24色</span></label>
+              <label class="palette-option"><input type="radio" name="colors" value="0"><span>フル</span></label>
+            </div>
+
+            <div class="dither-row">
+              <span class="dither-copy"><strong>ディザリング</strong><span>色を点で混ぜて、階調を残す</span></span>
+              <label class="switch">
+                <input id="ditherToggle" type="checkbox" aria-label="ディザリングを使う">
+                <span class="switch-track" aria-hidden="true"></span>
+              </label>
+            </div>
+          </div>
+
+          <button class="primary-button" id="download18" type="button" disabled>18×18 PNGを保存</button>
+          <div class="scaled-downloads" aria-label="ピクセルを保った拡大版を保存">
+            <button class="scaled-button" id="download36" type="button" disabled>36×36 拡大版</button>
+            <button class="scaled-button" id="download72" type="button" disabled>72×72 拡大版</button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <p class="usage-tip"><span class="tip-mark" aria-hidden="true">!</span><span>小さなバッチは、顔やマークを大きく切り抜き、色数を8〜16色にすると輪郭が伝わりやすくなります。拡大版も18×18の結果をそのまま整数倍しているため、ぼやけません。</span></p>
+    <p id="liveStatus" class="sr-only" aria-live="polite"></p>
+  </main>
+
+  <noscript><p class="noscript">このアプリを使うにはJavaScriptを有効にしてください。</p></noscript>
+
+  <style>
+    .sr-only {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+  </style>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const VIEW_SIZE = 720;
+      const PIXEL_SIZE = 18;
+      const SAMPLE_SCALE = 10;
+      const SAMPLE_SIZE = PIXEL_SIZE * SAMPLE_SCALE;
+      const MAX_SOURCE_EDGE = 4096;
+      const MAX_FILE_BYTES = 32 * 1024 * 1024;
+      const MAX_SOURCE_PIXELS = 80_000_000;
+
+      const cropCanvas = document.getElementById("cropCanvas");
+      const cropContext = cropCanvas.getContext("2d", { alpha: true });
+      const previewCanvas = document.getElementById("previewCanvas");
+      const previewContext = previewCanvas.getContext("2d", { alpha: true, willReadFrequently: true });
+      const actualCanvas = document.getElementById("actualCanvas");
+      const actualContext = actualCanvas.getContext("2d", { alpha: true });
+      const samplingCanvas = document.createElement("canvas");
+      const samplingContext = samplingCanvas.getContext("2d", { alpha: true, willReadFrequently: true });
+      samplingCanvas.width = SAMPLE_SIZE;
+      samplingCanvas.height = SAMPLE_SIZE;
+
+      const srgbToLinear = new Float32Array(256);
+      for (let channel = 0; channel < 256; channel += 1) {
+        const normalized = channel / 255;
+        srgbToLinear[channel] = normalized <= 0.04045
+          ? normalized / 12.92
+          : Math.pow((normalized + 0.055) / 1.055, 2.4);
+      }
+
+      const elements = {
+        cropStage: document.getElementById("cropStage"),
+        editorBody: document.getElementById("editorBody"),
+        fileInput: document.getElementById("fileInput"),
+        fileName: document.getElementById("fileName"),
+        fileSize: document.getElementById("fileSize"),
+        zoomRange: document.getElementById("zoomRange"),
+        zoomValue: document.getElementById("zoomValue"),
+        zoomOut: document.getElementById("zoomOut"),
+        zoomIn: document.getElementById("zoomIn"),
+        resetCrop: document.getElementById("resetCrop"),
+        previewShell: document.getElementById("previewShell"),
+        gridToggle: document.getElementById("gridToggle"),
+        ditherToggle: document.getElementById("ditherToggle"),
+        download18: document.getElementById("download18"),
+        download36: document.getElementById("download36"),
+        download72: document.getElementById("download72"),
+        errorMessage: document.getElementById("errorMessage"),
+        liveStatus: document.getElementById("liveStatus")
+      };
+
+      const state = {
+        source: null,
+        sourceWidth: 0,
+        sourceHeight: 0,
+        originalWidth: 0,
+        originalHeight: 0,
+        fileName: "image",
+        zoom: 1,
+        panX: 0,
+        panY: 0,
+        colors: 16,
+        dither: false,
+        pointers: new Map(),
+        gesture: null,
+        renderQueued: false,
+        loadGeneration: 0
+      };
+
+      function announce(message) {
+        elements.liveStatus.textContent = "";
+        window.setTimeout(() => {
+          elements.liveStatus.textContent = message;
+        }, 20);
+      }
+
+      function showError(message) {
+        elements.errorMessage.textContent = message;
+        elements.errorMessage.classList.add("visible");
+      }
+
+      function clearError() {
+        elements.errorMessage.textContent = "";
+        elements.errorMessage.classList.remove("visible");
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function getSourceSize(source) {
+        return {
+          width: source.naturalWidth || source.videoWidth || source.width,
+          height: source.naturalHeight || source.videoHeight || source.height
+        };
+      }
+
+      function getTransform() {
+        const baseScale = Math.max(VIEW_SIZE / state.sourceWidth, VIEW_SIZE / state.sourceHeight);
+        const scale = baseScale * state.zoom;
+        return {
+          scale,
+          width: state.sourceWidth * scale,
+          height: state.sourceHeight * scale
+        };
+      }
+
+      function clampPan() {
+        if (!state.source) return;
+        const transform = getTransform();
+        const maxX = Math.max(0, (transform.width - VIEW_SIZE) / 2);
+        const maxY = Math.max(0, (transform.height - VIEW_SIZE) / 2);
+        state.panX = clamp(state.panX, -maxX, maxX);
+        state.panY = clamp(state.panY, -maxY, maxY);
+      }
+
+      function drawSource(context, targetSize) {
+        if (!state.source) return;
+        const transform = getTransform();
+        const ratio = targetSize / VIEW_SIZE;
+        const x = (VIEW_SIZE - transform.width) / 2 + state.panX;
+        const y = (VIEW_SIZE - transform.height) / 2 + state.panY;
+        context.drawImage(
+          state.source,
+          x * ratio,
+          y * ratio,
+          transform.width * ratio,
+          transform.height * ratio
+        );
+      }
+
+      function drawCrop() {
+        cropContext.clearRect(0, 0, VIEW_SIZE, VIEW_SIZE);
+        if (!state.source) return;
+        cropContext.imageSmoothingEnabled = true;
+        cropContext.imageSmoothingQuality = "high";
+        drawSource(cropContext, VIEW_SIZE);
+      }
+
+      function colorDistance(a, b) {
+        const red = a[0] - b[0];
+        const green = a[1] - b[1];
+        const blue = a[2] - b[2];
+        return red * red * 0.30 + green * green * 0.59 + blue * blue * 0.11;
+      }
+
+      function linearToSrgb(value) {
+        const clamped = clamp(value, 0, 1);
+        const converted = clamped <= 0.0031308
+          ? clamped * 12.92
+          : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055;
+        return Math.round(converted * 255);
+      }
+
+      function downsampleToPixels(sampled) {
+        const output = new ImageData(PIXEL_SIZE, PIXEL_SIZE);
+        const samplesPerPixel = SAMPLE_SCALE * SAMPLE_SCALE;
+
+        for (let pixelY = 0; pixelY < PIXEL_SIZE; pixelY += 1) {
+          for (let pixelX = 0; pixelX < PIXEL_SIZE; pixelX += 1) {
+            let alphaSum = 0;
+            let redSum = 0;
+            let greenSum = 0;
+            let blueSum = 0;
+
+            for (let sampleY = 0; sampleY < SAMPLE_SCALE; sampleY += 1) {
+              const y = pixelY * SAMPLE_SCALE + sampleY;
+              for (let sampleX = 0; sampleX < SAMPLE_SCALE; sampleX += 1) {
+                const x = pixelX * SAMPLE_SCALE + sampleX;
+                const index = (y * SAMPLE_SIZE + x) * 4;
+                const alpha = sampled.data[index + 3] / 255;
+                alphaSum += alpha;
+                redSum += srgbToLinear[sampled.data[index]] * alpha;
+                greenSum += srgbToLinear[sampled.data[index + 1]] * alpha;
+                blueSum += srgbToLinear[sampled.data[index + 2]] * alpha;
+              }
+            }
+
+            const outputIndex = (pixelY * PIXEL_SIZE + pixelX) * 4;
+            if (alphaSum > 0.0001) {
+              output.data[outputIndex] = linearToSrgb(redSum / alphaSum);
+              output.data[outputIndex + 1] = linearToSrgb(greenSum / alphaSum);
+              output.data[outputIndex + 2] = linearToSrgb(blueSum / alphaSum);
+              output.data[outputIndex + 3] = Math.round((alphaSum / samplesPerPixel) * 255);
+            }
+          }
+        }
+
+        return output;
+      }
+
+      function nearestColorIndex(color, palette) {
+        let bestIndex = 0;
+        let bestDistance = Infinity;
+        for (let index = 0; index < palette.length; index += 1) {
+          const distance = colorDistance(color, palette[index]);
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            bestIndex = index;
+          }
+        }
+        return bestIndex;
+      }
+
+      function makePalette(data, requestedColors) {
+        const pixels = [];
+        const unique = new Map();
+
+        for (let index = 0; index < data.length; index += 4) {
+          if (data[index + 3] < 8) continue;
+          const color = [data[index], data[index + 1], data[index + 2]];
+          const key = color.join(",");
+          if (!unique.has(key)) unique.set(key, color);
+          pixels.push(color);
+        }
+
+        if (pixels.length === 0) return [];
+        if (unique.size <= requestedColors) return Array.from(unique.values());
+
+        const mean = [0, 0, 0];
+        pixels.forEach((pixel) => {
+          mean[0] += pixel[0];
+          mean[1] += pixel[1];
+          mean[2] += pixel[2];
+        });
+        mean[0] /= pixels.length;
+        mean[1] /= pixels.length;
+        mean[2] /= pixels.length;
+
+        const centroids = [];
+        let first = pixels[0];
+        let firstDistance = -1;
+        pixels.forEach((pixel) => {
+          const distance = colorDistance(pixel, mean);
+          if (distance > firstDistance) {
+            first = pixel;
+            firstDistance = distance;
+          }
+        });
+        centroids.push(first.slice());
+
+        while (centroids.length < requestedColors) {
+          let next = pixels[0];
+          let farthest = -1;
+          pixels.forEach((pixel) => {
+            let nearest = Infinity;
+            centroids.forEach((centroid) => {
+              nearest = Math.min(nearest, colorDistance(pixel, centroid));
+            });
+            if (nearest > farthest) {
+              farthest = nearest;
+              next = pixel;
+            }
+          });
+          centroids.push(next.slice());
+        }
+
+        for (let iteration = 0; iteration < 10; iteration += 1) {
+          const sums = centroids.map(() => [0, 0, 0, 0]);
+          pixels.forEach((pixel) => {
+            const cluster = nearestColorIndex(pixel, centroids);
+            sums[cluster][0] += pixel[0];
+            sums[cluster][1] += pixel[1];
+            sums[cluster][2] += pixel[2];
+            sums[cluster][3] += 1;
+          });
+
+          let changed = false;
+          sums.forEach((sum, index) => {
+            if (sum[3] === 0) return;
+            const next = [sum[0] / sum[3], sum[1] / sum[3], sum[2] / sum[3]];
+            if (colorDistance(next, centroids[index]) > 0.5) changed = true;
+            centroids[index] = next;
+          });
+          if (!changed) break;
+        }
+
+        return centroids.map((color) => color.map((channel) => Math.round(channel)));
+      }
+
+      function quantizeImage(imageData, colors, useDither) {
+        if (colors === 0) return imageData;
+        const palette = makePalette(imageData.data, colors);
+        if (palette.length === 0) return imageData;
+
+        const output = new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height);
+        const working = new Float32Array(imageData.data.length);
+        working.set(imageData.data);
+
+        function addError(x, y, red, green, blue, factor) {
+          if (x < 0 || x >= imageData.width || y < 0 || y >= imageData.height) return;
+          const index = (y * imageData.width + x) * 4;
+          if (working[index + 3] < 8) return;
+          working[index] += red * factor;
+          working[index + 1] += green * factor;
+          working[index + 2] += blue * factor;
+        }
+
+        for (let y = 0; y < imageData.height; y += 1) {
+          for (let x = 0; x < imageData.width; x += 1) {
+            const index = (y * imageData.width + x) * 4;
+            if (working[index + 3] < 8) {
+              output.data[index] = 0;
+              output.data[index + 1] = 0;
+              output.data[index + 2] = 0;
+              output.data[index + 3] = 0;
+              continue;
+            }
+
+            const current = [
+              clamp(working[index], 0, 255),
+              clamp(working[index + 1], 0, 255),
+              clamp(working[index + 2], 0, 255)
+            ];
+            const nearest = palette[nearestColorIndex(current, palette)];
+            output.data[index] = nearest[0];
+            output.data[index + 1] = nearest[1];
+            output.data[index + 2] = nearest[2];
+            output.data[index + 3] = imageData.data[index + 3];
+
+            if (useDither) {
+              const redError = current[0] - nearest[0];
+              const greenError = current[1] - nearest[1];
+              const blueError = current[2] - nearest[2];
+              addError(x + 1, y, redError, greenError, blueError, 7 / 16);
+              addError(x - 1, y + 1, redError, greenError, blueError, 3 / 16);
+              addError(x, y + 1, redError, greenError, blueError, 5 / 16);
+              addError(x + 1, y + 1, redError, greenError, blueError, 1 / 16);
+            }
+          }
+        }
+
+        return output;
+      }
+
+      function drawPixelResult() {
+        previewContext.clearRect(0, 0, PIXEL_SIZE, PIXEL_SIZE);
+        actualContext.clearRect(0, 0, PIXEL_SIZE, PIXEL_SIZE);
+        if (!state.source) return;
+
+        samplingContext.clearRect(0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+        samplingContext.imageSmoothingEnabled = true;
+        samplingContext.imageSmoothingQuality = "high";
+        drawSource(samplingContext, SAMPLE_SIZE);
+
+        const sourceSamples = samplingContext.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+        const sampled = downsampleToPixels(sourceSamples);
+        const result = quantizeImage(sampled, state.colors, state.dither);
+        previewContext.putImageData(result, 0, 0);
+        actualContext.putImageData(result, 0, 0);
+      }
+
+      function render() {
+        state.renderQueued = false;
+        clampPan();
+        drawCrop();
+        drawPixelResult();
+        elements.zoomRange.value = String(Math.round(state.zoom * 100));
+        elements.zoomValue.value = `${Math.round(state.zoom * 100)}%`;
+        elements.zoomValue.textContent = `${Math.round(state.zoom * 100)}%`;
+      }
+
+      function queueRender() {
+        if (state.renderQueued) return;
+        state.renderQueued = true;
+        window.requestAnimationFrame(render);
+      }
+
+      async function decodeImage(file) {
+        if ("createImageBitmap" in window) {
+          try {
+            return await createImageBitmap(file, { imageOrientation: "from-image" });
+          } catch (error) {
+            // Some browsers reject imageOrientation even when createImageBitmap exists.
+          }
+        }
+
+        return new Promise((resolve, reject) => {
+          const url = URL.createObjectURL(file);
+          const image = new Image();
+          image.onload = () => {
+            URL.revokeObjectURL(url);
+            resolve(image);
+          };
+          image.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error("画像を読み込めませんでした。"));
+          };
+          image.src = url;
+        });
+      }
+
+      function limitSourceSize(source) {
+        const size = getSourceSize(source);
+        const longest = Math.max(size.width, size.height);
+        if (longest <= MAX_SOURCE_EDGE) return source;
+
+        const scale = MAX_SOURCE_EDGE / longest;
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(size.width * scale));
+        canvas.height = Math.max(1, Math.round(size.height * scale));
+        const context = canvas.getContext("2d", { alpha: true });
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = "high";
+        context.drawImage(source, 0, 0, canvas.width, canvas.height);
+        if (typeof source.close === "function") source.close();
+        return canvas;
+      }
+
+      async function loadFile(file) {
+        const loadGeneration = ++state.loadGeneration;
+        clearError();
+        if (!file || !file.type.startsWith("image/")) {
+          showError("画像ファイルを選んでください。JPEG・PNG・WebPなどに対応しています。");
+          return;
+        }
+        if (file.size > MAX_FILE_BYTES) {
+          showError("画像ファイルが大きすぎます。32MB以下の画像を選んでください。");
+          return;
+        }
+
+        try {
+          const decoded = await decodeImage(file);
+          if (loadGeneration !== state.loadGeneration) {
+            if (typeof decoded.close === "function") decoded.close();
+            return;
+          }
+          const originalSize = getSourceSize(decoded);
+          if (!originalSize.width || !originalSize.height) throw new Error("画像サイズを取得できませんでした。");
+          if (originalSize.width * originalSize.height > MAX_SOURCE_PIXELS) {
+            if (typeof decoded.close === "function") decoded.close();
+            throw new Error("画像の画素数が大きすぎます。");
+          }
+
+          if (state.source && typeof state.source.close === "function") state.source.close();
+          state.source = limitSourceSize(decoded);
+          const workingSize = getSourceSize(state.source);
+          state.sourceWidth = workingSize.width;
+          state.sourceHeight = workingSize.height;
+          state.originalWidth = originalSize.width;
+          state.originalHeight = originalSize.height;
+          state.fileName = file.name || "pasted-image";
+          state.zoom = 1;
+          state.panX = 0;
+          state.panY = 0;
+
+          elements.fileName.textContent = state.fileName;
+          elements.fileSize.textContent = `${state.originalWidth.toLocaleString()} × ${state.originalHeight.toLocaleString()} px`;
+          elements.editorBody.classList.add("has-image");
+          elements.cropStage.classList.add("loaded");
+          elements.previewShell.classList.add("ready");
+          [elements.zoomRange, elements.zoomOut, elements.zoomIn, elements.resetCrop, elements.download18, elements.download36, elements.download72].forEach((element) => {
+            element.disabled = false;
+          });
+
+          queueRender();
+          announce(`${state.fileName}を読み込みました。正方形の切り抜きを調整できます。`);
+        } catch (error) {
+          if (loadGeneration !== state.loadGeneration) return;
+          showError("この画像は読み込めませんでした。別のJPEG・PNG・WebP画像を試してください。");
+        } finally {
+          if (loadGeneration === state.loadGeneration) elements.fileInput.value = "";
+        }
+      }
+
+      function pointOnCanvas(event) {
+        const rect = cropCanvas.getBoundingClientRect();
+        return {
+          x: (event.clientX - rect.left) * (VIEW_SIZE / rect.width),
+          y: (event.clientY - rect.top) * (VIEW_SIZE / rect.height)
+        };
+      }
+
+      function resetGesture() {
+        const points = Array.from(state.pointers.values());
+        if (points.length === 1) {
+          state.gesture = {
+            type: "drag",
+            start: points[0],
+            panX: state.panX,
+            panY: state.panY
+          };
+        } else if (points.length >= 2) {
+          const first = points[0];
+          const second = points[1];
+          const midpoint = { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 };
+          state.gesture = {
+            type: "pinch",
+            distance: Math.hypot(second.x - first.x, second.y - first.y) || 1,
+            midpoint,
+            zoom: state.zoom,
+            panX: state.panX,
+            panY: state.panY
+          };
+        } else {
+          state.gesture = null;
+        }
+      }
+
+      function setZoomAround(nextZoom, anchor, startZoom = state.zoom, startPanX = state.panX, startPanY = state.panY) {
+        const clampedZoom = clamp(nextZoom, 1, 4);
+        const ratio = clampedZoom / startZoom;
+        state.panX = anchor.x - VIEW_SIZE / 2 - ratio * (anchor.x - VIEW_SIZE / 2 - startPanX);
+        state.panY = anchor.y - VIEW_SIZE / 2 - ratio * (anchor.y - VIEW_SIZE / 2 - startPanY);
+        state.zoom = clampedZoom;
+        clampPan();
+        queueRender();
+      }
+
+      cropCanvas.addEventListener("pointerdown", (event) => {
+        if (!state.source) return;
+        event.preventDefault();
+        cropCanvas.setPointerCapture(event.pointerId);
+        state.pointers.set(event.pointerId, pointOnCanvas(event));
+        resetGesture();
+        elements.cropStage.classList.add("dragging");
+      });
+
+      cropCanvas.addEventListener("pointermove", (event) => {
+        if (!state.pointers.has(event.pointerId) || !state.source) return;
+        event.preventDefault();
+        state.pointers.set(event.pointerId, pointOnCanvas(event));
+        const points = Array.from(state.pointers.values());
+
+        if (state.gesture?.type === "drag" && points.length === 1) {
+          state.panX = state.gesture.panX + points[0].x - state.gesture.start.x;
+          state.panY = state.gesture.panY + points[0].y - state.gesture.start.y;
+          clampPan();
+          queueRender();
+        } else if (state.gesture?.type === "pinch" && points.length >= 2) {
+          const first = points[0];
+          const second = points[1];
+          const distance = Math.hypot(second.x - first.x, second.y - first.y) || 1;
+          const midpoint = { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 };
+          const nextZoom = state.gesture.zoom * (distance / state.gesture.distance);
+          const zoomRatio = clamp(nextZoom, 1, 4) / state.gesture.zoom;
+          state.zoom = clamp(nextZoom, 1, 4);
+          state.panX = midpoint.x - VIEW_SIZE / 2 - zoomRatio * (state.gesture.midpoint.x - VIEW_SIZE / 2 - state.gesture.panX);
+          state.panY = midpoint.y - VIEW_SIZE / 2 - zoomRatio * (state.gesture.midpoint.y - VIEW_SIZE / 2 - state.gesture.panY);
+          clampPan();
+          queueRender();
+        }
+      });
+
+      function endPointer(event) {
+        state.pointers.delete(event.pointerId);
+        if (cropCanvas.hasPointerCapture(event.pointerId)) cropCanvas.releasePointerCapture(event.pointerId);
+        resetGesture();
+        if (state.pointers.size === 0) elements.cropStage.classList.remove("dragging");
+      }
+
+      cropCanvas.addEventListener("pointerup", endPointer);
+      cropCanvas.addEventListener("pointercancel", endPointer);
+
+      cropCanvas.addEventListener("wheel", (event) => {
+        if (!state.source) return;
+        event.preventDefault();
+        const factor = Math.exp(-event.deltaY * 0.0015);
+        setZoomAround(state.zoom * factor, pointOnCanvas(event));
+      }, { passive: false });
+
+      cropCanvas.addEventListener("keydown", (event) => {
+        if (!state.source) return;
+        const amount = event.shiftKey ? 24 : 6;
+        let handled = true;
+
+        switch (event.key) {
+          case "ArrowLeft": state.panX -= amount; break;
+          case "ArrowRight": state.panX += amount; break;
+          case "ArrowUp": state.panY -= amount; break;
+          case "ArrowDown": state.panY += amount; break;
+          case "+":
+          case "=": setZoomAround(state.zoom + 0.1, { x: VIEW_SIZE / 2, y: VIEW_SIZE / 2 }); break;
+          case "-": setZoomAround(state.zoom - 0.1, { x: VIEW_SIZE / 2, y: VIEW_SIZE / 2 }); break;
+          case "0":
+            state.zoom = 1;
+            state.panX = 0;
+            state.panY = 0;
+            break;
+          default: handled = false;
+        }
+
+        if (handled) {
+          event.preventDefault();
+          clampPan();
+          queueRender();
+        }
+      });
+
+      elements.fileInput.addEventListener("change", () => {
+        loadFile(elements.fileInput.files?.[0]);
+      });
+
+      document.querySelectorAll('label[for="fileInput"]').forEach((label) => {
+        label.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          elements.fileInput.click();
+        });
+      });
+
+      ["dragenter", "dragover"].forEach((eventName) => {
+        elements.cropStage.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+          elements.cropStage.classList.add("drag-over");
+        });
+      });
+
+      ["dragleave", "drop"].forEach((eventName) => {
+        elements.cropStage.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          elements.cropStage.classList.remove("drag-over");
+        });
+      });
+
+      elements.cropStage.addEventListener("drop", (event) => {
+        const file = Array.from(event.dataTransfer?.files || []).find((candidate) => candidate.type.startsWith("image/"));
+        if (file) loadFile(file);
+        else showError("ドロップされたファイルに画像が見つかりませんでした。");
+      });
+
+      window.addEventListener("paste", (event) => {
+        const file = Array.from(event.clipboardData?.items || [])
+          .find((item) => item.type.startsWith("image/"))
+          ?.getAsFile();
+        if (file) {
+          event.preventDefault();
+          loadFile(file);
+        }
+      });
+
+      elements.zoomRange.addEventListener("input", () => {
+        setZoomAround(Number(elements.zoomRange.value) / 100, { x: VIEW_SIZE / 2, y: VIEW_SIZE / 2 });
+      });
+
+      elements.zoomOut.addEventListener("click", () => {
+        setZoomAround(state.zoom - 0.1, { x: VIEW_SIZE / 2, y: VIEW_SIZE / 2 });
+      });
+
+      elements.zoomIn.addEventListener("click", () => {
+        setZoomAround(state.zoom + 0.1, { x: VIEW_SIZE / 2, y: VIEW_SIZE / 2 });
+      });
+
+      elements.resetCrop.addEventListener("click", () => {
+        state.zoom = 1;
+        state.panX = 0;
+        state.panY = 0;
+        queueRender();
+        announce("切り抜きを中央に戻しました。");
+      });
+
+      document.querySelectorAll('input[name="colors"]').forEach((input) => {
+        input.addEventListener("change", () => {
+          state.colors = Number(document.querySelector('input[name="colors"]:checked').value);
+          queueRender();
+        });
+      });
+
+      elements.ditherToggle.addEventListener("change", () => {
+        state.dither = elements.ditherToggle.checked;
+        queueRender();
+      });
+
+      elements.gridToggle.addEventListener("change", () => {
+        elements.previewShell.classList.toggle("grid-on", elements.gridToggle.checked);
+      });
+
+      function safeFileStem(name) {
+        const withoutExtension = name.replace(/\.[^.]+$/, "");
+        const normalized = withoutExtension.normalize("NFKC").replace(/[\\/:*?"<>|]+/g, "-").trim();
+        return normalized || "twitch-sub-badge";
+      }
+
+      function triggerDownload(size) {
+        if (!state.source) return;
+        const output = document.createElement("canvas");
+        output.width = size;
+        output.height = size;
+        const context = output.getContext("2d", { alpha: true });
+        context.imageSmoothingEnabled = false;
+        context.clearRect(0, 0, size, size);
+        context.drawImage(previewCanvas, 0, 0, size, size);
+
+        output.toBlob((blob) => {
+          if (!blob) {
+            showError("PNGを作成できませんでした。もう一度お試しください。");
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `${safeFileStem(state.fileName)}_pixel-${size}x${size}.png`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+          announce(`${size}かける${size}ピクセルのPNGを保存しました。`);
+        }, "image/png");
+      }
+
+      elements.download18.addEventListener("click", () => triggerDownload(18));
+      elements.download36.addEventListener("click", () => triggerDownload(36));
+      elements.download72.addEventListener("click", () => triggerDownload(72));
+
+      render();
+    })();
+  </script>
+</body>
+</html>
